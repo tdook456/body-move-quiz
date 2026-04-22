@@ -1,0 +1,233 @@
+﻿<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Body Move Quiz — สร้างเกมของคุณเอง!</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Kanit:wght@300;400;600;700&display=swap');
+  :root {
+    --yellow: #ffca28; --green: #66bb6a; --blue: #4fc3f7;
+    --purple: #ab47bc; --dark: #1a237e; --darker: #0d1757;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Kanit',sans-serif; background:var(--darker); color:#fff; min-height:100vh; overflow-x:hidden; }
+
+  /* HERO */
+  .hero {
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:linear-gradient(160deg,#0d1757,#1a237e,#283593);
+    position:relative; overflow:hidden; padding:40px 20px; gap:20px; text-align:center;
+  }
+  .hero::before {
+    content:''; position:absolute; width:600px; height:600px; border-radius:50%;
+    background:radial-gradient(circle,rgba(79,195,247,.08),transparent 70%);
+    top:-100px; right:-100px; pointer-events:none;
+  }
+  .hero::after {
+    content:''; position:absolute; width:500px; height:500px; border-radius:50%;
+    background:radial-gradient(circle,rgba(171,71,188,.08),transparent 70%);
+    bottom:-100px; left:-100px; pointer-events:none;
+  }
+
+  .hero-badge {
+    background:rgba(255,202,40,.15); border:1px solid rgba(255,202,40,.4);
+    color:var(--yellow); padding:6px 20px; border-radius:30px; font-size:.85rem; letter-spacing:.05em;
+  }
+  .hero-title {
+    font-family:'Fredoka One',cursive; font-size:clamp(2.8rem,8vw,5.5rem);
+    color:var(--yellow); text-shadow:0 4px 30px rgba(255,202,40,.3);
+    animation:titlePulse 3s ease-in-out infinite; line-height:1.1;
+  }
+  @keyframes titlePulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.02)} }
+  .hero-sub { color:#90caf9; font-size:clamp(1rem,2.5vw,1.4rem); max-width:500px; line-height:1.6; }
+
+  .steps-row {
+    display:flex; gap:16px; flex-wrap:wrap; justify-content:center; max-width:700px;
+  }
+  .step-chip {
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15);
+    border-radius:50px; padding:8px 20px; font-size:.9rem; color:rgba(255,255,255,.8);
+    display:flex; align-items:center; gap:8px;
+  }
+  .step-num {
+    background:var(--yellow); color:var(--dark); border-radius:50%;
+    width:22px; height:22px; display:flex; align-items:center; justify-content:center;
+    font-size:.75rem; font-weight:700; flex-shrink:0;
+  }
+
+  /* CARD */
+  .card {
+    background:rgba(255,255,255,.06); backdrop-filter:blur(20px);
+    border:1px solid rgba(255,255,255,.12); border-radius:24px;
+    padding:32px; width:min(520px,90vw); position:relative; z-index:1;
+  }
+  .card-title { font-family:'Fredoka One',cursive; font-size:1.4rem; color:#fff; margin-bottom:20px; }
+
+  .template-btn {
+    display:flex; align-items:center; gap:12px;
+    background:rgba(102,187,106,.15); border:1px solid rgba(102,187,106,.4);
+    border-radius:14px; padding:14px 20px; color:#fff; text-decoration:none;
+    transition:all .2s; margin-bottom:24px; cursor:pointer;
+  }
+  .template-btn:hover { background:rgba(102,187,106,.25); transform:translateY(-2px); }
+  .template-icon { font-size:1.8rem; }
+  .template-text { text-align:left; }
+  .template-text strong { display:block; font-size:1rem; color:#a5d6a7; }
+  .template-text span { font-size:.82rem; color:rgba(255,255,255,.55); }
+
+  .divider { display:flex; align-items:center; gap:12px; margin:20px 0; color:rgba(255,255,255,.3); font-size:.85rem; }
+  .divider::before,.divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.1); }
+
+  .input-group { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  .input-label { font-size:.9rem; color:#90caf9; }
+  .input-field {
+    width:100%; padding:13px 18px; border-radius:12px;
+    border:2px solid rgba(255,255,255,.15); background:rgba(255,255,255,.07);
+    color:#fff; font-family:'Kanit',sans-serif; font-size:.95rem; outline:none;
+    transition:border-color .2s;
+  }
+  .input-field:focus { border-color:var(--yellow); }
+  .input-field::placeholder { color:rgba(255,255,255,.3); }
+
+  .btn-play {
+    width:100%; padding:15px; border-radius:14px; border:none; cursor:pointer;
+    font-family:'Fredoka One',cursive; font-size:1.3rem;
+    background:linear-gradient(135deg,#ffca28,#ff8f00); color:var(--dark);
+    box-shadow:0 8px 30px rgba(255,143,0,.35); transition:all .2s;
+  }
+  .btn-play:hover { transform:translateY(-3px) scale(1.02); box-shadow:0 12px 40px rgba(255,143,0,.45); }
+  .btn-play:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+
+  .hint-text { font-size:.8rem; color:rgba(255,255,255,.35); text-align:center; margin-top:12px; line-height:1.5; }
+  .hint-text a { color:#90caf9; }
+
+  /* HOW TO */
+  .howto { padding:80px 20px; max-width:900px; margin:0 auto; }
+  .section-title { font-family:'Fredoka One',cursive; font-size:clamp(1.8rem,4vw,2.5rem); color:var(--yellow); text-align:center; margin-bottom:48px; }
+  .howto-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:24px; }
+  .howto-card {
+    background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+    border-radius:20px; padding:28px 24px; text-align:center;
+    transition:transform .2s, background .2s;
+  }
+  .howto-card:hover { transform:translateY(-4px); background:rgba(255,255,255,.07); }
+  .howto-icon { font-size:2.8rem; margin-bottom:14px; }
+  .howto-num { font-family:'Fredoka One',cursive; font-size:.85rem; color:var(--yellow); margin-bottom:8px; letter-spacing:.1em; }
+  .howto-card h3 { font-size:1.05rem; margin-bottom:8px; color:#fff; }
+  .howto-card p { font-size:.88rem; color:rgba(255,255,255,.5); line-height:1.6; }
+
+  /* FOOTER */
+  footer {
+    text-align:center; padding:30px 20px;
+    border-top:1px solid rgba(255,255,255,.07);
+    color:rgba(255,255,255,.25); font-size:.82rem;
+  }
+  footer a { color:rgba(255,255,255,.4); }
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-badge">🎮 AR Body Move Game</div>
+  <div class="hero-title">🏃 Body Move Quiz!</div>
+  <div class="hero-sub">เกมตอบคำถามโดยใช้ร่างกาย — วิ่งไปยืนฝั่งที่ถูก ไม่ต้องแตะโทรศัพท์!</div>
+
+  <div class="steps-row">
+    <div class="step-chip"><div class="step-num">1</div> Copy เทมเพลต Sheet</div>
+    <div class="step-chip"><div class="step-num">2</div> ใส่คำถามของคุณ</div>
+    <div class="step-chip"><div class="step-num">3</div> กรอก ID แล้วเล่นได้เลย!</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🚀 เริ่มเล่นเลย</div>
+
+    <!-- Step 1: Template -->
+    <a class="template-btn" href="https://docs.google.com/spreadsheets/d/1W07reW-boBuKlZKhmVxmunckoWI-QcA7RQOe_L2OuZY/copy" target="_blank">
+      <div class="template-icon">📋</div>
+      <div class="template-text">
+        <strong>Step 1 — Copy เทมเพลต Sheet มาไว้ในไดร์ฟของคุณ</strong>
+        <span>คลิกที่นี่ → Google จะสร้างสำเนาให้อัตโนมัติ</span>
+      </div>
+      <span style="margin-left:auto;font-size:1.2rem;">→</span>
+    </a>
+
+    <div class="divider">จากนั้น</div>
+
+    <!-- Step 2: ID input -->
+    <div class="input-group">
+      <div class="input-label">📌 Step 2 — วาง Spreadsheet ID ของคุณ</div>
+      <input class="input-field" id="sidInput" type="text" placeholder="เช่น 1GBqIfeOIII2O5nF76c5moh3O0...">
+    </div>
+    <div class="input-group">
+      <div class="input-label">🎯 ชื่อ Sheet Tab (ชุดคำถาม)</div>
+      <input class="input-field" id="sheetInput" type="text" value="animals" placeholder="animals, colors, numbers...">
+    </div>
+
+    <button class="btn-play" onclick="playGame()">▶ เริ่มเกม!</button>
+    <div class="hint-text">
+      เว้นว่าง Spreadsheet ID → เล่นด้วยชุดตัวอย่างของเรา<br>
+      Sheet ต้องตั้งค่า <strong style="color:#90caf9">Share → Anyone with link → Viewer</strong>
+    </div>
+  </div>
+</section>
+
+<!-- HOW TO -->
+<section class="howto">
+  <div class="section-title">วิธีใช้งาน</div>
+  <div class="howto-grid">
+    <div class="howto-card">
+      <div class="howto-icon">📋</div>
+      <div class="howto-num">STEP 01</div>
+      <h3>Copy เทมเพลต</h3>
+      <p>กดปุ่ม Copy Sheet ด้านบน Google Drive จะสร้างสำเนาใส่ไดร์ฟของคุณอัตโนมัติ</p>
+    </div>
+    <div class="howto-card">
+      <div class="howto-icon">✏️</div>
+      <div class="howto-num">STEP 02</div>
+      <h3>ใส่คำถามของคุณ</h3>
+      <p>แก้ไข Sheet tab ชื่อ <strong>animals</strong> หรือสร้าง tab ใหม่ ใส่คำถาม รูปภาพ และเฉลยได้เลย</p>
+    </div>
+    <div class="howto-card">
+      <div class="howto-icon">🔗</div>
+      <div class="howto-num">STEP 03</div>
+      <h3>Share Sheet</h3>
+      <p>ตั้งค่า Share → Anyone with link → Viewer แล้วคัดลอก Spreadsheet ID จาก URL</p>
+    </div>
+    <div class="howto-card">
+      <div class="howto-icon">🎮</div>
+      <div class="howto-num">STEP 04</div>
+      <h3>เล่นได้เลย!</h3>
+      <p>กรอก ID ในช่องด้านบน กดเริ่มเกม — เล่นได้ทุกที่ในโลก ไม่ต้องติดตั้งอะไร</p>
+    </div>
+    <div class="howto-card">
+      <div class="howto-icon">⚙️</div>
+      <div class="howto-num">SETTINGS</div>
+      <h3>ตั้งค่าเกม</h3>
+      <p>แก้ Sheet tab <strong>settings</strong> ปรับเวลาต่อข้อ ระยะ hold และขนาดโซนได้เอง</p>
+    </div>
+    <div class="howto-card">
+      <div class="howto-icon">🖼️</div>
+      <div class="howto-num">รูปภาพ</div>
+      <h3>ใช้รูปได้เลย</h3>
+      <p>ใส่ลิงก์รูปจาก Google Drive ในคอลัมน์ left_image / right_image รองรับทุกรูปแบบ</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Body Move Quiz — สร้างโดย <a href="#">SATIT NRRU NEXT</a> &nbsp;|&nbsp; เกมฟรีสำหรับครูทุกคน
+</footer>
+
+<script>
+  function playGame() {
+    const sid   = document.getElementById('sidInput').value.trim();
+    const sheet = document.getElementById('sheetInput').value.trim() || 'animals';
+    // เปลี่ยน URL นี้ให้ตรงกับที่ host ไฟล์ animals4.html
+   let url = `model_animals.html?sheet=${encodeURIComponent(sheet)}`;
+    if (sid) url += `&sid=${encodeURIComponent(sid)}`;
+    window.location.href = url;
+  }
+</script>
+</body>
+</html>
