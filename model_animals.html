@@ -1,0 +1,710 @@
+﻿<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Body Move Quiz 🎮</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Kanit:wght@400;600;700&display=swap');
+  :root {
+    --yellow:#ffca28; --green:#66bb6a; --red:#ef5350;
+    --blue:#4fc3f7; --purple:#ab47bc; --dark:#1a237e;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Kanit',sans-serif; background:linear-gradient(135deg,#e0f7fa,#b3e5fc); min-height:100vh; overflow:hidden; }
+  .screen { display:none; width:100vw; height:100vh; position:absolute; top:0; left:0; flex-direction:column; align-items:center; justify-content:center; }
+  .screen.active { display:flex; }
+
+  /* START */
+  #startScreen { background:linear-gradient(160deg,#1a237e,#283593,#3949ab); gap:18px; padding:20px; }
+  .game-title { font-family:'Fredoka One',cursive; font-size:clamp(2.2rem,6vw,4.5rem); color:var(--yellow); text-shadow:0 4px 20px rgba(255,202,40,.4); animation:titlePulse 2s ease-in-out infinite; text-align:center; }
+  @keyframes titlePulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
+  .game-subtitle { color:#90caf9; font-size:clamp(.9rem,2vw,1.2rem); text-align:center; }
+  .sheet-selector { display:flex; flex-direction:column; align-items:center; gap:10px; width:min(400px,90vw); }
+  .sheet-selector label { color:#90caf9; font-size:.95rem; align-self:flex-start; }
+  .sheet-input { width:100%; padding:11px 20px; border-radius:50px; border:2px solid rgba(255,255,255,.3); background:rgba(255,255,255,.1); color:#fff; font-family:'Kanit',sans-serif; font-size:1rem; outline:none; text-align:center; backdrop-filter:blur(10px); }
+  .sheet-input:focus { border-color:var(--yellow); }
+  .cam-box { width:min(360px,88vw); height:200px; border-radius:20px; overflow:hidden; border:4px solid var(--yellow); box-shadow:0 0 40px rgba(255,202,40,.25); position:relative; background:#000; }
+  #previewVideo { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+  .cam-label { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.6); color:#fff; padding:4px 16px; border-radius:20px; font-size:.8rem; white-space:nowrap; }
+  .btn-start { font-family:'Fredoka One',cursive; font-size:clamp(1.1rem,2.5vw,1.6rem); padding:14px 50px; background:linear-gradient(135deg,#ffca28,#ff8f00); color:#1a237e; border:none; border-radius:50px; cursor:pointer; box-shadow:0 8px 30px rgba(255,143,0,.4); transition:all .2s; }
+  .btn-start:hover { transform:translateY(-4px) scale(1.05); }
+  .btn-start:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+  .status-text { color:rgba(255,255,255,.6); font-size:.85rem; min-height:20px; text-align:center; }
+
+  /* GAME */
+  #gameScreen { padding:0; position:relative; background:#000; }
+  #camVideo { width:100vw; height:100vh; object-fit:cover; transform:scaleX(-1); position:absolute; top:0; left:0; }
+  #motionCanvas { display:none; }
+
+  .zone { position:absolute; top:0; bottom:0; opacity:0; transition:opacity .25s; pointer-events:none; }
+  .zone-left  { left:0;  background:linear-gradient(to right,rgba(79,195,247,.25),transparent); border-left:5px solid rgba(79,195,247,.7); }
+  .zone-right { right:0; background:linear-gradient(to left,rgba(171,71,188,.25),transparent); border-right:5px solid rgba(171,71,188,.7); }
+  .zone.active { opacity:1; }
+
+  .hold-bar-wrap { position:absolute; bottom:0; height:8px; width:100%; background:rgba(255,255,255,.2); }
+  .hold-bar { height:100%; background:var(--yellow); width:0%; transition:width .08s linear; border-radius:4px; }
+
+  .zone-tag { position:absolute; top:50%; transform:translateY(-50%); font-family:'Fredoka One',cursive; font-size:clamp(1rem,2.5vw,1.5rem); padding:8px 16px; border-radius:12px; color:#fff; opacity:.9; }
+  .zone-left .zone-tag  { left:10px;  background:rgba(79,195,247,.65); }
+  .zone-right .zone-tag { right:10px; background:rgba(171,71,188,.65); }
+
+  .game-overlay { position:absolute; top:0; left:0; width:100%; height:100%; display:flex; flex-direction:column; pointer-events:none; }
+  .top-bar { display:flex; justify-content:space-between; align-items:center; padding:14px 20px; background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent); pointer-events:all; }
+  .score-box { background:rgba(255,255,255,.15); backdrop-filter:blur(10px); border:2px solid rgba(255,255,255,.25); border-radius:50px; padding:7px 20px; color:#fff; font-size:1.1rem; font-weight:700; }
+  .score-box span { color:var(--yellow); font-size:1.3rem; }
+  .progress-info { color:rgba(255,255,255,.8); font-size:.95rem; text-align:center; }
+  .timer-wrap { position:relative; width:64px; height:64px; }
+  .timer-wrap svg { transform:rotate(-90deg); }
+  .timer-wrap circle { fill:none; stroke-width:6; }
+  .timer-bg { stroke:rgba(255,255,255,.2); }
+  .timer-fg { stroke:var(--yellow); stroke-linecap:round; transition:stroke-dashoffset .5s linear; }
+  .timer-num { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-family:'Fredoka One',cursive; font-size:1.3rem; color:#fff; }
+  .btn-exit { background:rgba(255,255,255,.15); backdrop-filter:blur(10px); border:2px solid rgba(255,255,255,.25); border-radius:50px; padding:7px 18px; color:#fff; font-family:'Kanit',sans-serif; font-size:.95rem; cursor:pointer; pointer-events:all; transition:all .2s; }
+  .btn-exit:hover { background:rgba(239,83,80,.5); }
+  .btn-mute { background:rgba(255,255,255,.15); backdrop-filter:blur(10px); border:2px solid rgba(255,255,255,.25); border-radius:50%; width:42px; height:42px; color:#fff; font-size:1.2rem; cursor:pointer; pointer-events:all; transition:all .2s; display:flex; align-items:center; justify-content:center; }
+  .btn-mute:hover { background:rgba(255,255,255,.25); }
+
+  .question-area { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding-top:16px; gap:6px; }
+  .q-label { color:rgba(255,255,255,.75); font-size:clamp(.75rem,1.8vw,1rem); }
+  .question-word { font-family:'Fredoka One',cursive; font-size:clamp(2.2rem,6vw,4.5rem); color:#fff; background:linear-gradient(135deg,rgba(102,187,106,.85),rgba(41,182,246,.85)); backdrop-filter:blur(10px); border:3px solid rgba(255,255,255,.35); padding:10px 44px; border-radius:60px; box-shadow:0 8px 40px rgba(0,0,0,.3); animation:wordBounce .5s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes wordBounce { from{transform:scale(.4);opacity:0} to{transform:scale(1);opacity:1} }
+
+  .choices-row { display:flex; justify-content:space-between; align-items:flex-end; padding:0 16px 24px; gap:12px; }
+
+  /* การ์ด — แตะได้ ลอยได้ */
+  .choice-card {
+    width:min(260px,36vw); background:rgba(255,255,255,.93); backdrop-filter:blur(10px);
+    border-radius:18px; padding:14px; border:4px solid rgba(255,255,255,.5);
+    box-shadow:0 8px 40px rgba(0,0,0,.3); display:flex; flex-direction:column;
+    align-items:center; gap:8px; min-height:150px; justify-content:center;
+    cursor:pointer; pointer-events:all;
+    transition:transform .15s, border-color .2s, box-shadow .2s;
+    user-select:none; -webkit-tap-highlight-color:transparent;
+  }
+  .choice-card:active { transform:scale(0.95) !important; }
+  .left-card  { border-color:#4fc3f7; }
+  .right-card { border-color:#ab47bc; }
+  .choice-card.fly-correct { animation:flyOut .5s ease-in forwards; }
+  .choice-card.fly-wrong   { animation:flyDown .5s ease-in forwards; }
+  @keyframes flyOut  { 0%{transform:scale(1.08);opacity:1} 100%{transform:scale(1.4) translateY(-80px);opacity:0} }
+  @keyframes flyDown { 0%{transform:scale(1);opacity:1}    100%{transform:scale(0.8) translateY(60px);opacity:0} }
+
+  .choice-img   { width:100%; max-height:100px; object-fit:contain; border-radius:10px; }
+  .choice-emoji { font-size:clamp(2.5rem,6vw,4rem); line-height:1; }
+  .choice-label { font-family:'Fredoka One',cursive; font-size:clamp(.85rem,2vw,1.2rem); color:#1a237e; text-align:center; }
+
+  /* hint แตะที่การ์ด */
+  .tap-hint {
+    position:absolute; bottom:200px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,.55); color:#fff; font-size:.85rem; padding:6px 18px;
+    border-radius:20px; white-space:nowrap; opacity:0; transition:opacity .3s;
+    pointer-events:none; z-index:10;
+  }
+  .tap-hint.show { opacity:1; }
+
+  .result-flash { position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; font-family:'Fredoka One',cursive; font-size:clamp(2.5rem,8vw,6rem); opacity:0; pointer-events:none; transition:opacity .2s; z-index:100; }
+  .result-flash.correct { background:rgba(102,187,106,.45); color:#fff; }
+  .result-flash.wrong   { background:rgba(239,83,80,.45);   color:#fff; }
+  .result-flash.timeout { background:rgba(0,0,0,.5);         color:#fff; }
+  .result-flash.show { opacity:1; }
+  .result-sub { font-size:clamp(1rem,2.5vw,1.6rem); opacity:.9; }
+
+  .countdown-overlay { position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.72); display:none; align-items:center; justify-content:center; z-index:200; flex-direction:column; gap:16px; }
+  .countdown-overlay.show { display:flex; }
+  .countdown-num { font-family:'Fredoka One',cursive; font-size:clamp(5rem,18vw,12rem); color:var(--yellow); animation:countPop .8s cubic-bezier(.34,1.56,.64,1); text-shadow:0 0 60px rgba(255,202,40,.5); }
+  .countdown-hint { color:rgba(255,255,255,.75); font-size:clamp(.85rem,2vw,1.2rem); text-align:center; padding:0 20px; }
+  @keyframes countPop { from{transform:scale(2.5);opacity:0} to{transform:scale(1);opacity:1} }
+
+  /* END */
+  #endScreen { background:linear-gradient(160deg,#1a237e,#283593,#3949ab); gap:18px; }
+  .end-trophy { font-size:clamp(4rem,10vw,7rem); animation:trophySpin .8s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes trophySpin { from{transform:scale(0) rotate(-180deg)} to{transform:scale(1) rotate(0deg)} }
+  .end-title  { font-family:'Fredoka One',cursive; font-size:clamp(1.8rem,5vw,3rem); color:var(--yellow); }
+  .end-stars  { font-size:clamp(2rem,5vw,3.5rem); }
+  .end-score  { color:#90caf9; font-size:clamp(1rem,2.5vw,1.5rem); }
+  .end-score span { color:#fff; font-weight:700; font-size:1.2em; }
+  .btn-group  { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+  .btn-outline { font-family:'Fredoka One',cursive; font-size:clamp(.9rem,2vw,1.2rem); padding:11px 30px; background:rgba(255,255,255,.12); color:#fff; border:2px solid rgba(255,255,255,.35); border-radius:50px; cursor:pointer; transition:all .2s; backdrop-filter:blur(10px); }
+  .btn-outline:hover { background:rgba(255,255,255,.22); transform:translateY(-3px); }
+
+  .particle { position:fixed; pointer-events:none; border-radius:50%; z-index:999; animation:particleFall 1.6s ease-out forwards; }
+  @keyframes particleFall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(120px) rotate(360deg);opacity:0} }
+</style>
+</head>
+<body>
+
+<div id="startScreen" class="screen active">
+  <div class="game-title">🏃 Body Move Quiz!</div>
+  <div class="game-subtitle">วิ่งไปแตะการ์ด หรือยืนค้างฝั่งที่ถูก!</div>
+  <div class="sheet-selector">
+    <label>🎮 เลือกชุดคำถาม (ชื่อ Sheet Tab)</label>
+    <input class="sheet-input" id="sheetNameInput" type="text" value="animals" placeholder="เช่น animals, colors, numbers">
+  </div>
+  <div class="sheet-selector">
+    <label>📋 Spreadsheet ID (เว้นว่างใช้ค่าเริ่มต้น)</label>
+    <input class="sheet-input" id="spreadsheetId" type="text" placeholder="วางได้เลย">
+  </div>
+  <div class="cam-box">
+    <video id="previewVideo" autoplay muted playsinline></video>
+    <div class="cam-label">📷 ตรวจสอบกล้อง</div>
+  </div>
+  <button class="btn-start" id="btnStart" onclick="startGame()">▶ เริ่มเกม!</button>
+  <div class="status-text" id="statusText">กำลังโหลดกล้อง...</div>
+</div>
+
+<div id="gameScreen" class="screen">
+  <video id="camVideo" autoplay muted playsinline></video>
+  <canvas id="motionCanvas"></canvas>
+
+  <div class="zone zone-left" id="zoneLeft" style="width:25%">
+    <div class="zone-tag">◀ ซ้าย</div>
+    <div class="hold-bar-wrap"><div class="hold-bar" id="holdBarLeft"></div></div>
+  </div>
+  <div class="zone zone-right" id="zoneRight" style="width:25%">
+    <div class="zone-tag">ขวา ▶</div>
+    <div class="hold-bar-wrap"><div class="hold-bar" id="holdBarRight"></div></div>
+  </div>
+
+  <div class="tap-hint" id="tapHint">👆 แตะการ์ดหรือวิ่งไปยืนฝั่งที่ถูก!</div>
+
+  <div class="result-flash" id="resultFlash">
+    <span id="resultIcon">✓</span>
+    <span class="result-sub" id="resultSub"></span>
+  </div>
+  <div class="countdown-overlay" id="countdownOverlay">
+    <div class="countdown-num" id="countdownNum">3</div>
+    <div class="countdown-hint" id="countdownHint">ยืนกลางจอ แล้วเตรียมตัว!</div>
+  </div>
+
+  <div class="game-overlay">
+    <div class="top-bar">
+      <div class="score-box">คะแนน: <span id="scoreDisplay">0</span></div>
+      <div class="progress-info" id="progressInfo">ข้อ 1/5</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="btn-mute" id="btnMute" onclick="toggleMute()">🔊</button>
+        <div class="timer-wrap">
+          <svg width="64" height="64" viewBox="0 0 64 64">
+            <circle class="timer-bg" cx="32" cy="32" r="26"/>
+            <circle class="timer-fg" id="timerCircle" cx="32" cy="32" r="26" stroke-dasharray="163" stroke-dashoffset="0"/>
+          </svg>
+          <div class="timer-num" id="timerNum">15</div>
+        </div>
+        <button class="btn-exit" onclick="exitGame()">✕</button>
+      </div>
+    </div>
+    <div class="question-area">
+      <div class="q-label">คำที่หมายถึง...</div>
+      <div class="question-word" id="questionWord">cat</div>
+    </div>
+    <div class="choices-row">
+      <div class="choice-card left-card" id="leftCard" onclick="tapAnswer('left')">
+        <div id="leftImg" class="choice-emoji">🐱</div>
+        <div class="choice-label" id="leftLabel">cat</div>
+      </div>
+      <div class="choice-card right-card" id="rightCard" onclick="tapAnswer('right')">
+        <div id="rightImg" class="choice-emoji">🐶</div>
+        <div class="choice-label" id="rightLabel">dog</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="endScreen" class="screen">
+  <div class="end-trophy" id="endTrophy">🏆</div>
+  <div class="end-title">จบเกมแล้ว!</div>
+  <div class="end-stars" id="endStars">⭐⭐⭐</div>
+  <div class="end-score">ได้ <span id="finalScore">0</span> จาก <span id="totalQ">0</span> ข้อ</div>
+  <div class="btn-group">
+    <button class="btn-start" onclick="restartGame()">🔄 เล่นอีกครั้ง</button>
+    <button class="btn-outline" onclick="goHome()">🏠 หน้าหลัก</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx1OAnPg8fsun1-PEHab3segWqboTH8X198VvciXasFRJULfHJcOKGIclMRwN9K3Op-/exec';
+
+let TIMER_SEC = 15;
+let HOLD_MS   = 2000;
+let ZONE_W    = 0.25;
+
+// ============================================================
+// AUDIO
+// ============================================================
+let audioCtx = null, bgmNode = null, bgmGain = null, isMuted = false;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function startBGM() {
+  if (isMuted) return; stopBGM();
+  try {
+    const ctx = getAudioCtx();
+    bgmGain = ctx.createGain(); bgmGain.gain.value = 0.08; bgmGain.connect(ctx.destination);
+    const notes = [523,659,784,1047,784,659,523,392,523,659,880,784,659,523,392,330];
+    const step = 60/160; let t = ctx.currentTime + 0.1;
+    function scheduleLoop() {
+      notes.forEach((freq,i) => {
+        const osc = ctx.createOscillator(), g = ctx.createGain();
+        osc.connect(g); g.connect(bgmGain); osc.type='square'; osc.frequency.value=freq;
+        g.gain.setValueAtTime(0, t+i*step);
+        g.gain.linearRampToValueAtTime(0.5, t+i*step+0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, t+i*step+step*0.7);
+        osc.start(t+i*step); osc.stop(t+i*step+step);
+      });
+      t += notes.length*step;
+    }
+    scheduleLoop();
+    bgmNode = setInterval(() => { if (!isMuted && bgmGain) scheduleLoop(); }, (notes.length*step*1000)-100);
+  } catch(e){}
+}
+function stopBGM() {
+  if (bgmNode) { clearInterval(bgmNode); bgmNode=null; }
+  if (bgmGain) { try{bgmGain.disconnect();}catch(e){} bgmGain=null; }
+}
+function toggleMute() {
+  isMuted=!isMuted;
+  document.getElementById('btnMute').textContent = isMuted?'🔇':'🔊';
+  if (isMuted) stopBGM(); else startBGM();
+}
+function sfxCorrect() {
+  if (isMuted) return;
+  try {
+    const ctx=getAudioCtx();
+    [523,659,784,1047].forEach((f,i) => {
+      const osc=ctx.createOscillator(),g=ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination); osc.type='sine'; osc.frequency.value=f;
+      const t=ctx.currentTime+i*0.1;
+      g.gain.setValueAtTime(0.3,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.3);
+      osc.start(t); osc.stop(t+0.3);
+    });
+  } catch(e){}
+}
+function sfxWrong() {
+  if (isMuted) return;
+  try {
+    const ctx=getAudioCtx(), osc=ctx.createOscillator(), g=ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination); osc.type='sawtooth';
+    osc.frequency.setValueAtTime(300,ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(100,ctx.currentTime+0.4);
+    g.gain.setValueAtTime(0.25,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.5);
+    osc.start(); osc.stop(ctx.currentTime+0.5);
+  } catch(e){}
+}
+function sfxCountdown() {
+  if (isMuted) return;
+  try {
+    const ctx=getAudioCtx(), osc=ctx.createOscillator(), g=ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination); osc.type='sine'; osc.frequency.value=880;
+    g.gain.setValueAtTime(0.2,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.15);
+    osc.start(); osc.stop(ctx.currentTime+0.15);
+  } catch(e){}
+}
+function sfxGo() {
+  if (isMuted) return;
+  try {
+    const ctx=getAudioCtx();
+    [523,659,1047].forEach((f,i) => {
+      const osc=ctx.createOscillator(),g=ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination); osc.type='sine'; osc.frequency.value=f;
+      const t=ctx.currentTime+i*0.07;
+      g.gain.setValueAtTime(0.3,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.25);
+      osc.start(t); osc.stop(t+0.25);
+    });
+  } catch(e){}
+}
+function sfxTick() {
+  if (isMuted) return;
+  try {
+    const ctx=getAudioCtx(), osc=ctx.createOscillator(), g=ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination); osc.type='sine'; osc.frequency.value=440;
+    g.gain.setValueAtTime(0.1,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.08);
+    osc.start(); osc.stop(ctx.currentTime+0.08);
+  } catch(e){}
+}
+function sfxHoldProgress(pct) {
+  if (isMuted||pct<30||pct%25>5) return;
+  try {
+    const ctx=getAudioCtx(), osc=ctx.createOscillator(), g=ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.frequency.value=300+pct*5; osc.type='sine';
+    g.gain.setValueAtTime(0.08,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.06);
+    osc.start(); osc.stop(ctx.currentTime+0.06);
+  } catch(e){}
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let stream=null, questions=[], currentQ=0, score=0;
+let timeLeft=TIMER_SEC, timerInterval=null;
+let motionInterval=null, answered=false;
+let holdZone=null, holdProgress=0;
+let bgBaseline=null;
+
+const motionCanvas = document.getElementById('motionCanvas');
+const motionCtx2   = motionCanvas.getContext('2d');
+
+// ============================================================
+// CAMERA
+// ============================================================
+async function initCamera(videoEl) {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video:{width:1280,height:720,facingMode:'user'}, audio:false });
+    videoEl.srcObject = stream; return true;
+  } catch(e) { setStatus('❌ ไม่สามารถเปิดกล้องได้'); return false; }
+}
+
+// ============================================================
+// LOAD QUESTIONS
+// ============================================================
+async function loadQuestions(sheetName) {
+  setStatus('⏳ กำลังโหลดคำถามและตั้งค่า...');
+  document.getElementById('btnStart').disabled = true;
+  try {
+    const sid = document.getElementById('spreadsheetId').value.trim();
+    const url = sid
+      ? `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}&sid=${encodeURIComponent(sid)}`
+      : `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (!data.questions?.length) {
+      setStatus('❌ ไม่พบข้อมูลคำถามใน Sheet: ' + sheetName);
+      document.getElementById('btnStart').disabled = false;
+      return false;
+    }
+    if (data.settings) {
+      if (data.settings.timePerQuestion) TIMER_SEC = Number(data.settings.timePerQuestion);
+      if (data.settings.holdTimeMs)      HOLD_MS   = Number(data.settings.holdTimeMs);
+      if (data.settings.zoneWidth)       ZONE_W    = Number(data.settings.zoneWidth);
+    }
+    document.getElementById('zoneLeft').style.width  = (ZONE_W*100)+'%';
+    document.getElementById('zoneRight').style.width = (ZONE_W*100)+'%';
+    questions = data.questions.sort(() => Math.random()-0.5);
+    setStatus(`✅ โหลดสำเร็จ ${questions.length} ข้อ พร้อมเล่น!`);
+    document.getElementById('btnStart').disabled = false;
+    return true;
+  } catch(e) {
+    setStatus('❌ โหลดไม่ได้ ตรวจสอบอินเทอร์เน็ต');
+    document.getElementById('btnStart').disabled = false;
+    return false;
+  }
+}
+function setStatus(msg) { document.getElementById('statusText').textContent = msg; }
+
+// ============================================================
+// START / RESTART
+// ============================================================
+async function startGame() {
+  const sheetName = document.getElementById('sheetNameInput').value.trim() || 'animals';
+  const ok = await loadQuestions(sheetName);
+  if (!ok) return;
+  currentQ=0; score=0;
+  document.getElementById('scoreDisplay').textContent='0';
+  showScreen('gameScreen');
+  document.getElementById('camVideo').srcObject = stream;
+  getAudioCtx(); startBGM(); startCountdown();
+}
+function restartGame() {
+  questions = questions.sort(() => Math.random()-0.5);
+  currentQ=0; score=0;
+  document.getElementById('scoreDisplay').textContent='0';
+  showScreen('gameScreen'); startBGM(); startCountdown();
+}
+function exitGame()  { clearInterval(timerInterval); stopMotion(); endGame(); }
+function goHome()    { stopBGM(); showScreen('startScreen'); setStatus('พร้อมเล่น!'); }
+
+// ============================================================
+// COUNTDOWN + CALIBRATION
+// ============================================================
+function startCountdown() {
+  const overlay = document.getElementById('countdownOverlay');
+  const numEl   = document.getElementById('countdownNum');
+  const hintEl  = document.getElementById('countdownHint');
+  overlay.classList.add('show');
+  bgBaseline = null;
+  // รีเซ็ตการ์ดให้มองเห็น
+  ['leftCard','rightCard'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('fly-correct','fly-wrong');
+    el.style.opacity = '1';
+  });
+  let c=3;
+  numEl.textContent=c; animateEl(numEl); sfxCountdown();
+  hintEl.textContent='📷 ยืนกลางจอ กำลังจับฉากหลัง...';
+
+  const cd = setInterval(() => {
+    c--;
+    if (c===2) { captureBaseline(); hintEl.textContent='วิ่งไปแตะการ์ด หรือยืนค้างฝั่งที่ถูก!'; }
+    if (c<=0) {
+      clearInterval(cd);
+      overlay.classList.remove('show');
+      sfxGo(); loadQuestion();
+    } else { numEl.textContent=c; animateEl(numEl); sfxCountdown(); }
+  }, 900);
+}
+
+function captureBaseline() {
+  const vid = document.getElementById('camVideo');
+  if (vid.readyState < 2) return;
+  const W=160, H=90;
+  motionCanvas.width=W; motionCanvas.height=H;
+  motionCtx2.drawImage(vid,0,0,W,H);
+  bgBaseline = motionCtx2.getImageData(0,0,W,H);
+}
+function animateEl(el) { el.style.animation='none'; void el.offsetWidth; el.style.animation='countPop .8s cubic-bezier(.34,1.56,.64,1)'; }
+
+// ============================================================
+// LOAD QUESTION
+// ============================================================
+function loadQuestion() {
+  if (currentQ >= questions.length) { endGame(); return; }
+  answered=false; holdZone=null; holdProgress=0;
+  resetHoldBars();
+
+  const q = questions[currentQ];
+  document.getElementById('progressInfo').textContent = `ข้อ ${currentQ+1}/${questions.length}`;
+  const qw = document.getElementById('questionWord');
+  qw.textContent = q.question; animateEl(qw);
+
+  renderChoice('leftImg','leftLabel',q.left_image,q.left_label);
+  renderChoice('rightImg','rightLabel',q.right_image,q.right_label);
+
+  document.getElementById('leftCard').style.cssText  = 'border-color:#4fc3f7;transform:scale(1);opacity:1';
+  document.getElementById('rightCard').style.cssText = 'border-color:#ab47bc;transform:scale(1);opacity:1';
+  document.getElementById('zoneLeft').classList.remove('active');
+  document.getElementById('zoneRight').classList.remove('active');
+
+  // แสดง tap hint ช่วงแรก แล้วซ่อน
+  const hint = document.getElementById('tapHint');
+  hint.classList.add('show');
+  setTimeout(() => hint.classList.remove('show'), 2500);
+
+  setTimeout(() => captureBaseline(), 300);
+  startTimer();
+  startMotion();
+}
+
+function renderChoice(imgId, labelId, image, label) {
+  document.getElementById(labelId).textContent = label;
+  const el = document.getElementById(imgId);
+  if (image && (image.startsWith('http') || image.startsWith('/'))) {
+    el.outerHTML = `<img id="${imgId}" class="choice-img" src="${image}" alt="${label}" referrerpolicy="no-referrer" onerror="this.outerHTML='<div id=\\'${imgId}\\' class=\\'choice-emoji\\'>🖼️</div>'">`;
+  } else {
+    const curr = document.getElementById(imgId);
+    if (curr.tagName==='IMG') {
+      curr.outerHTML = `<div id="${imgId}" class="choice-emoji">${image||'❓'}</div>`;
+    } else { curr.textContent=image||'❓'; curr.className='choice-emoji'; }
+  }
+}
+
+// ============================================================
+// TIMER
+// ============================================================
+function startTimer() {
+  timeLeft=TIMER_SEC; updateTimer();
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimer();
+    if (timeLeft<=3 && timeLeft>0) sfxTick();
+    if (timeLeft<=0) { clearInterval(timerInterval); if (!answered) handleAnswer(null); }
+  }, 1000);
+}
+function updateTimer() {
+  document.getElementById('timerNum').textContent = timeLeft;
+  const r=26, circ=2*Math.PI*r;
+  const fg = document.getElementById('timerCircle');
+  fg.style.strokeDashoffset = circ*(1-Math.max(0,timeLeft)/Math.max(1,TIMER_SEC));
+  fg.style.stroke = timeLeft<=3?'#ef5350':'#ffca28';
+}
+
+// ============================================================
+// TAP ANSWER (แตะการ์ดตรงๆ)
+// ============================================================
+function tapAnswer(zone) {
+  if (answered) return;
+  handleAnswer(zone);
+}
+
+// ============================================================
+// DETECTION: Background Subtraction + Dark Mass
+// ============================================================
+const W=160, H=90;
+const STABLE_NEEDED = 3;
+const BG_THRESH     = 25;
+const DARK_THRESH   = 140;
+const MIN_SCORE     = 0.08;  // ลดลงให้จับง่ายขึ้นทั้งสองฝั่ง
+const RATIO         = 1.3;   // ลดลงให้สมดุลขึ้น
+
+function startMotion() {
+  if (motionInterval) clearInterval(motionInterval);
+  motionCanvas.width=W; motionCanvas.height=H;
+  const vid = document.getElementById('camVideo');
+  let stableCount = { left:0, right:0, none:0 };
+
+  motionInterval = setInterval(() => {
+    if (vid.readyState<2 || answered) return;
+    motionCtx2.drawImage(vid,0,0,W,H);
+    const curr = motionCtx2.getImageData(0,0,W,H);
+    if (!bgBaseline) { bgBaseline=curr; return; }
+
+    const leftPx  = Math.floor(W*ZONE_W);
+    const rightPx = Math.floor(W*(1-ZONE_W));
+    let bgL=0,bgR=0,darkL=0,darkR=0,cntL=0,cntR=0;
+
+    for (let i=0; i<curr.data.length; i+=4) {
+      const pix=i/4, rawX=pix%W, x=W-1-rawX;
+      const r=curr.data[i], g=curr.data[i+1], b=curr.data[i+2];
+      const brightness=(r+g+b)/3;
+      const diff=Math.abs(r-bgBaseline.data[i])+Math.abs(g-bgBaseline.data[i+1])+Math.abs(b-bgBaseline.data[i+2]);
+      const hasFg=diff>BG_THRESH, isDark=brightness<DARK_THRESH;
+      if (x<leftPx)       { if(hasFg)bgL++; if(isDark)darkL++; cntL++; }
+      else if (x>=rightPx){ if(hasFg)bgR++; if(isDark)darkR++; cntR++; }
+    }
+
+    const bgLn=bgL/(cntL||1), bgRn=bgR/(cntR||1);
+    const darkLn=darkL/(cntL||1), darkRn=darkR/(cntR||1);
+    const scoreL=bgLn*0.7+darkLn*0.3;
+    const scoreR=bgRn*0.7+darkRn*0.3;
+
+    let zone=null;
+    if (scoreL>MIN_SCORE && scoreL>scoreR*RATIO) zone='left';
+    else if (scoreR>MIN_SCORE && scoreR>scoreL*RATIO) zone='right';
+
+    if (zone==='left')        { stableCount.left++;  stableCount.right=0; stableCount.none=0; }
+    else if (zone==='right')  { stableCount.right++; stableCount.left=0;  stableCount.none=0; }
+    else { stableCount.none++; stableCount.left=Math.max(0,stableCount.left-1); stableCount.right=Math.max(0,stableCount.right-1); }
+
+    const stableZone = stableCount.left>=STABLE_NEEDED ? 'left'
+                     : stableCount.right>=STABLE_NEEDED ? 'right' : null;
+
+    document.getElementById('zoneLeft').classList.toggle('active',  stableZone==='left');
+    document.getElementById('zoneRight').classList.toggle('active', stableZone==='right');
+    document.getElementById('leftCard').style.transform  = stableZone==='left'  ? 'scale(1.07)' : stableZone==='right' ? 'scale(0.96)' : 'scale(1)';
+    document.getElementById('rightCard').style.transform = stableZone==='right' ? 'scale(1.07)' : stableZone==='left'  ? 'scale(0.96)' : 'scale(1)';
+
+    if (stableZone && stableZone===holdZone) {
+      holdProgress+=80;
+      const pct=Math.min(holdProgress/HOLD_MS*100,100);
+      updateHoldBar(stableZone,pct); sfxHoldProgress(pct);
+      if (holdProgress>=HOLD_MS) handleAnswer(stableZone);
+    } else { holdZone=stableZone; holdProgress=0; resetHoldBars(); }
+  }, 80);
+}
+
+function updateHoldBar(zone,pct) {
+  if (zone==='left')  document.getElementById('holdBarLeft').style.width=pct+'%';
+  if (zone==='right') document.getElementById('holdBarRight').style.width=pct+'%';
+}
+function resetHoldBars() {
+  document.getElementById('holdBarLeft').style.width='0%';
+  document.getElementById('holdBarRight').style.width='0%';
+}
+function stopMotion() {
+  if (motionInterval) { clearInterval(motionInterval); motionInterval=null; }
+  bgBaseline=null;
+}
+
+// ============================================================
+// HANDLE ANSWER
+// ============================================================
+function handleAnswer(zone) {
+  if (answered) return;
+  answered=true;
+  clearInterval(timerInterval);
+  stopMotion();
+
+  const q = questions[currentQ];
+  const correctSide = (q.correct_side||'').toLowerCase().trim();
+  const correct = zone===correctSide;
+
+  if (!zone) {
+    showFlash('timeout','⏰','หมดเวลา!'); sfxWrong();
+    // ไม่มีการ์ดลอย กรณี timeout
+  } else {
+    // แอนิเมชันการ์ดที่เลือก
+    const chosenCard    = zone==='left' ? 'leftCard' : 'rightCard';
+    const chosenClass   = correct ? 'fly-correct' : 'fly-wrong';
+    document.getElementById(chosenCard).classList.add(chosenClass);
+
+    if (correct) {
+      score++;
+      showFlash('correct','✓','ถูกต้อง! 🎉'); sfxCorrect(); spawnParticles();
+    } else {
+      showFlash('wrong','✗','ผิด!'); sfxWrong();
+      // ไฮไลต์การ์ดที่ถูก
+      const correctCard = correctSide==='left' ? 'leftCard' : 'rightCard';
+      document.getElementById(correctCard).style.borderColor='#66bb6a';
+      document.getElementById(correctCard).style.transform='scale(1.08)';
+    }
+  }
+
+  document.getElementById('scoreDisplay').textContent=score;
+
+  setTimeout(() => {
+    hideFlash();
+    currentQ++;
+    currentQ<questions.length ? startCountdown() : endGame();
+  }, 2200);
+}
+
+function showFlash(type,icon,sub) {
+  const el=document.getElementById('resultFlash');
+  el.className=`result-flash ${type} show`;
+  document.getElementById('resultIcon').textContent=icon;
+  document.getElementById('resultSub').textContent=sub;
+}
+function hideFlash() { document.getElementById('resultFlash').classList.remove('show'); }
+
+// ============================================================
+// END GAME
+// ============================================================
+function endGame() {
+  clearInterval(timerInterval); stopMotion(); stopBGM();
+  showScreen('endScreen');
+  document.getElementById('finalScore').textContent=score;
+  document.getElementById('totalQ').textContent=questions.length;
+  const pct=score/questions.length;
+  document.getElementById('endTrophy').textContent=pct>=.8?'🏆':pct>=.5?'🥈':'🎖️';
+  document.getElementById('endStars').textContent =pct>=.8?'⭐⭐⭐':pct>=.5?'⭐⭐':'⭐';
+  const t=document.getElementById('endTrophy');
+  t.style.animation='none'; void t.offsetWidth;
+  t.style.animation='trophySpin .8s cubic-bezier(.34,1.56,.64,1)';
+  spawnParticles(35); if(pct>=.8)sfxCorrect();
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function spawnParticles(n=18) {
+  const colors=['#ffca28','#66bb6a','#4fc3f7','#ef5350','#ab47bc','#fff'];
+  for (let i=0;i<n;i++) {
+    setTimeout(() => {
+      const p=document.createElement('div'); p.className='particle';
+      const s=8+Math.random()*14;
+      p.style.cssText=`width:${s}px;height:${s}px;background:${colors[Math.floor(Math.random()*colors.length)]};left:${Math.random()*100}vw;top:${15+Math.random()*50}vh;animation-duration:${1+Math.random()}s;animation-delay:${Math.random()*0.3}s`;
+      document.body.appendChild(p); setTimeout(()=>p.remove(),2500);
+    }, i*40);
+  }
+}
+
+// Init
+(async () => {
+  const ok = await initCamera(document.getElementById('previewVideo'));
+  if (ok) setStatus('✅ กล้องพร้อม! กดเริ่มเกมได้เลย');
+})();
+</script>
+</body>
+</html>
